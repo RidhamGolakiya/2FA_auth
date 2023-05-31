@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+    <script src="/jquery.min.js"></script>
+
+</head>
+
+<body>
+    <h1>Dashboard</h1>
+    <script>
+        // Check if the query parameter 'success' is present
+        var userId = '<%= user && user._id %>';
+        const urlParams = new URLSearchParams(window.location.search);
+        const successParam = urlParams.get('success');
+        const two_auth = urlParams.get('two_auth');
+        if (successParam === 'true') {
+            // Display the SweetAlert popup on successful login
+            Swal.fire({
+                title: "Enable Two-Factor Authentication?",
+                text: "Do you want to enable two-factor authentication for your account?",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Yes",
+                cancelButtonText: "No",
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // If pressed a confirm button so call a ajax request.
+                    $.ajax({
+                        url: "/two-auth",
+                        method: "POST",
+                        data: {
+                            userId: userId,
+                            enableTwoFactor: true,
+                        },
+                        success: (response) => {
+                            const image = response.data
+                            Swal.fire({
+                                title: "You need to scan this qr into Google authenticator",
+                                confirmButtonText: "Okay",
+                                allowOutsideClick: false,
+                                imageUrl: image // set a google authenticator qrcode to the image
+                            }).then((result) => {
+                                // Again popup for confirmation of google authenticator scan or not.
+                                if (result.isConfirmed) {
+                                    Swal.fire({
+                                        imageUrl: image,
+                                        allowOutsideClick: false,
+                                        title: "Make sure you scan this qr into Google authenticator"
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            Swal.fire({
+                                                title: "You enabled your Google authenticator successfully. Please login again",
+                                                icon: "success"
+                                            })
+                                            setInterval(function () { window.location.replace("http://localhost:3000/login") }, 2000)
+                                        }
+                                    })
+                                }
+                            })
+                        }
+                    })
+                } else {
+                    // If pressed cancel
+                    Swal.fire("Two-Factor Authentication Not Enabled", "", "info");
+                }
+            });
+        } else if (two_auth === 'true') {
+            // Two factor authentication is enabled then comes here.
+            Swal.fire({
+                title: 'Two factor authentication',
+                text: 'Please enter your two factor key:',
+                input: 'text',
+                inputPlaceholder: 'Please enter your two factor key', //placeholder
+                showCancelButton: true,
+                confirmButtonText: 'Submit',
+            }).then((result) => {
+                // After enter a secret key and press confirm button
+                if (result.isConfirmed) {
+                    const key = result.value;
+                    if (key) {
+                        $.ajax({
+                            url: "/check-auth",
+                            method: "POST",
+                            data: {
+                                id: userId,
+                                two_auth: key,
+                            },
+                            success: (response) => {
+                                // If credential is matched
+                                if (response.success === true) {
+                                    Swal.fire({
+                                        title: "Hurray! you done it!",
+                                        confirmButtonText: "Okay",
+                                    })
+                                } else {
+                                    // If credential is not matched
+                                    Swal.fire({
+                                        title: "Oh no! you entered incorrect key!",
+                                        confirmButtonText: "Okay",
+                                        icon: "error",
+                                    })
+                                    setInterval(function () { window.location.replace("http://localhost:3000/login") }, 2000)
+                                }
+                            }
+                        })
+                    }
+                } else {
+                    // If pressed cancel button
+                    window.location.replace("http://localhost:3000/login")
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>
